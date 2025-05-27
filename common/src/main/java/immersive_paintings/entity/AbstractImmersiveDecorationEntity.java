@@ -115,7 +115,8 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
     }
 
     public boolean canStayAttached() {
-        if (Config.getInstance().testIfSpaceEmpty && !this.getWorld().isSpaceEmpty(this)) {
+        return true; // always true to disable space check
+/*        if (Config.getInstance().testIfSpaceEmpty && !this.getWorld().isSpaceEmpty(this)) {
             return false;
         }
 
@@ -125,7 +126,7 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
             return false;
         }
 
-        return this.getWorld().getOtherEntities(this, this.getBoundingBox(), PREDICATE).stream().noneMatch(v -> ((AbstractImmersiveDecorationEntity)v).facing == this.facing);
+        return this.getWorld().getOtherEntities(this, this.getBoundingBox(), PREDICATE).stream().noneMatch(v -> ((AbstractImmersiveDecorationEntity)v).facing == this.facing);*/
     }
 
     public int getRotation() {
