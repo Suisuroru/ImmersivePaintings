@@ -24,7 +24,13 @@ public class ClientNetworkManager implements NetworkManager {
             MinecraftClient.getInstance().setScreen(new ImmersivePaintingScreen(
                     request.entity,
                     request.minResolution, request.maxResolution,
-                    request.showOtherPlayersPaintings, request.uploadPermissionLevel
+                    request.showOtherPlayersPaintings, request.uploadPermissionLevel, false
+            ));
+        } else if (request.gui == OpenGuiRequest.Type.DATAEDIT) {
+            MinecraftClient.getInstance().setScreen(new ImmersivePaintingScreen(
+                    request.entity,
+                    request.minResolution, request.maxResolution,
+                    request.showOtherPlayersPaintings, request.uploadPermissionLevel, true
             ));
         }
     }

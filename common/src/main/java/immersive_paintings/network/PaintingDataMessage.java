@@ -4,8 +4,8 @@ import immersive_paintings.cobalt.network.Message;
 import immersive_paintings.entity.ImmersivePaintingEntity;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 
 public abstract class PaintingDataMessage extends Message {
     final String motive;
@@ -13,8 +13,8 @@ public abstract class PaintingDataMessage extends Message {
     final String material;
     final int entityId;
     private final Direction facing;
-    private final int rotation;
-    private final int x, y, z;
+    private final double rotation;
+    private final double x, y, z;
 
     public PaintingDataMessage(ImmersivePaintingEntity painting) {
         entityId = painting.getId();
@@ -34,10 +34,10 @@ public abstract class PaintingDataMessage extends Message {
         this.frame = b.readString();
         this.material = b.readString();
         this.facing = b.readEnumConstant(Direction.class);
-        this.rotation = b.readInt();
-        this.x = b.readInt();
-        this.y = b.readInt();
-        this.z = b.readInt();
+        this.rotation = b.readDouble();
+        this.x = b.readDouble();
+        this.y = b.readDouble();
+        this.z = b.readDouble();
     }
 
     @Override
@@ -47,10 +47,10 @@ public abstract class PaintingDataMessage extends Message {
         b.writeString(frame);
         b.writeString(material);
         b.writeEnumConstant(facing);
-        b.writeInt(rotation);
-        b.writeInt(x);
-        b.writeInt(y);
-        b.writeInt(z);
+        b.writeDouble(rotation);
+        b.writeDouble(x);
+        b.writeDouble(y);
+        b.writeDouble(z);
     }
 
     public Identifier getMotive() {
@@ -61,7 +61,7 @@ public abstract class PaintingDataMessage extends Message {
         return new Identifier(frame);
     }
 
-    public int getRotation() {
+    public double getRotation() {
         return rotation;
     }
 
@@ -77,7 +77,7 @@ public abstract class PaintingDataMessage extends Message {
         return facing;
     }
 
-    public BlockPos getPos() {
-        return new BlockPos(x, y, z);
+    public Vec3d getPos() {
+        return new Vec3d(x, y, z);
     }
 }

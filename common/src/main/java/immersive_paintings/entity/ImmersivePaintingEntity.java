@@ -24,6 +24,7 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
@@ -37,7 +38,7 @@ public class ImmersivePaintingEntity extends AbstractImmersiveDecorationEntity {
     private int height = 1;
 
     public ImmersivePaintingEntity(World world, BlockPos pos, Direction direction, int rotation) {
-        super(Entities.PAINTING.get(), world, pos);
+        super(Entities.PAINTING.get(), world, new Vec3d(pos.getX(), pos.getY(), pos.getZ()));
 
         setFacing(direction, rotation);
     }
@@ -47,7 +48,7 @@ public class ImmersivePaintingEntity extends AbstractImmersiveDecorationEntity {
     }
 
     public ImmersivePaintingEntity(EntityType<?> painting, World world, BlockPos pos) {
-        super(painting, world, pos);
+        super(painting, world, new Vec3d(pos.getX(), pos.getY(), pos.getZ()));
     }
 
     @Override
@@ -105,8 +106,7 @@ public class ImmersivePaintingEntity extends AbstractImmersiveDecorationEntity {
 
     @Override
     public void updateTrackedPositionAndAngles(double x, double y, double z, float yaw, float pitch, int interpolationSteps, boolean interpolate) {
-        BlockPos blockPos = this.attachmentPos.add(BlockPos.ofFloored(x - this.getX(), y - this.getY(), z - this.getZ()));
-        this.setPosition(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+        this.setPosition(x, y, z);
     }
 
     @Override
@@ -130,12 +130,21 @@ public class ImmersivePaintingEntity extends AbstractImmersiveDecorationEntity {
     public ActionResult interact(PlayerEntity player, Hand hand) {
         if (player instanceof ServerPlayerEntity serverPlayerEntity && serverPlayerEntity.interactionManager.getGameMode() != GameMode.ADVENTURE) {
             if (!XercaPaintCompat.interactWithPainting(this, player, hand)) {
-                Config config = Config.getInstance();
-                NetworkHandler.sendToPlayer(new OpenGuiRequest(
-                        OpenGuiRequest.Type.EDITOR, getId(),
-                        config.minPaintingResolution, config.maxPaintingResolution,
-                        config.showOtherPlayersPaintings, config.uploadPermissionLevel
-                ), (ServerPlayerEntity) player);
+                if (!player.isSneaking()) {
+                    Config config = Config.getInstance();
+                    NetworkHandler.sendToPlayer(new OpenGuiRequest(
+                            OpenGuiRequest.Type.EDITOR, getId(),
+                            config.minPaintingResolution, config.maxPaintingResolution,
+                            config.showOtherPlayersPaintings, config.uploadPermissionLevel
+                    ), (ServerPlayerEntity) player);
+                } else {
+                    Config config = Config.getInstance();
+                    NetworkHandler.sendToPlayer(new OpenGuiRequest(
+                            OpenGuiRequest.Type.DATAEDIT, getId(),
+                            config.minPaintingResolution, config.maxPaintingResolution,
+                            config.showOtherPlayersPaintings, config.uploadPermissionLevel
+                    ), (ServerPlayerEntity) player);
+                }
             }
             return ActionResult.CONSUME;
         } else {

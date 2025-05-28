@@ -14,6 +14,7 @@ public class Messages {
         NetworkHandler.registerMessage(ImageRequest.class, ImageRequest::new);
         NetworkHandler.registerMessage(PaintingListMessage.class, PaintingListMessage::new);
         NetworkHandler.registerMessage(ImageResponse.class, ImageResponse::new);
+        NetworkHandler.registerMessage(EditRequest.class, EditRequest::new);
         NetworkHandler.registerMessage(PaintingModifyRequest.class, PaintingModifyRequest::new);
         NetworkHandler.registerMessage(PaintingModifyMessage.class, PaintingModifyMessage::new);
         NetworkHandler.registerMessage(RegisterPaintingRequest.class, RegisterPaintingRequest::new);

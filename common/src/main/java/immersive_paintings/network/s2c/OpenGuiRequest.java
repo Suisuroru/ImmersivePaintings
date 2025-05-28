@@ -50,5 +50,6 @@ public class OpenGuiRequest extends Message {
 
     public enum Type {
         EDITOR,
+        DATAEDIT
     }
 }

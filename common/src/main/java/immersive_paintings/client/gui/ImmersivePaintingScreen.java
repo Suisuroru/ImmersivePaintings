@@ -6,10 +6,7 @@ import immersive_paintings.client.gui.widget.*;
 import immersive_paintings.cobalt.network.NetworkHandler;
 import immersive_paintings.entity.ImmersivePaintingEntity;
 import immersive_paintings.network.LazyNetworkManager;
-import immersive_paintings.network.c2s.PaintingDeleteRequest;
-import immersive_paintings.network.c2s.PaintingModifyRequest;
-import immersive_paintings.network.c2s.RegisterPaintingRequest;
-import immersive_paintings.network.c2s.UploadPaintingRequest;
+import immersive_paintings.network.c2s.*;
 import immersive_paintings.resources.*;
 import immersive_paintings.util.FlowingText;
 import immersive_paintings.util.ImageManipulations;
@@ -20,6 +17,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.widget.TextWidget;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
@@ -74,9 +72,14 @@ public class ImmersivePaintingScreen extends Screen {
     private boolean shouldReProcess;
     private static volatile boolean shouldUpload;
 
+    private double rotation = 0;
+    private double moveX = 0;
+    private double moveY = 0;
+    private double moveZ = 0;
+
     final ExecutorService service = Executors.newFixedThreadPool(1);
 
-    public ImmersivePaintingScreen(int entityId, int minResolution, int maxResolution, boolean showOtherPlayersPaintings, int uploadPermissionLevel) {
+    public ImmersivePaintingScreen(int entityId, int minResolution, int maxResolution, boolean showOtherPlayersPaintings, int uploadPermissionLevel, boolean bl) {
         super(Text.translatable("item.immersive_paintings.painting"));
 
         this.entityId = entityId;
@@ -93,6 +96,10 @@ public class ImmersivePaintingScreen extends Screen {
 
         if (entity == null) {
             close();
+        }
+
+        if (bl) {
+            page = Page.EDIT;
         }
     }
 
@@ -222,11 +229,16 @@ public class ImmersivePaintingScreen extends Screen {
             if (!entity.isGraffiti()) {
                 b.add(Page.FRAME);
             }
+            b.add(Page.EDIT);
 
             int x = width / 2 - 200;
             int w = 400 / b.size();
             for (Page page : b) {
-                addDrawableChild(new DefaultButtonWidget(x, height / 2 - 90 - 22, w, 20, Text.translatable("immersive_paintings.page." + page.name().toLowerCase(Locale.ROOT)), sender -> setPage(page))).active = page != this.page;
+                if (page == Page.EDIT) {
+                    addDrawableChild(new DefaultButtonWidget(x, height / 2 - 90 - 22, w, 20, Text.literal("位置编辑"), sender -> setPage(page))).active = page != this.page;
+                } else {
+                    addDrawableChild(new DefaultButtonWidget(x, height / 2 - 90 - 22, w, 20, Text.translatable("immersive_paintings.page." + page.name().toLowerCase(Locale.ROOT)), sender -> setPage(page))).active = page != this.page;
+                }
                 x += w;
             }
         }
@@ -250,6 +262,86 @@ public class ImmersivePaintingScreen extends Screen {
                 addDrawableChild(new DefaultButtonWidget(width / 2 - 65 + 100, height / 2 + 70, 30, 20, Text.literal(">>"), sender -> setScreenshotPage(screenshotPage + 1)));
                 setScreenshotPage(screenshotPage);
             }
+            case EDIT -> {
+                // set default value
+                rotation = entity.getRotation();
+                moveX = entity.getAttachmentPos().getX();
+                moveY = entity.getAttachmentPos().getY();
+                moveZ = entity.getAttachmentPos().getZ();
+                int y = height / 2 - 70;
+
+                addDrawableChild(new TextWidget(width / 2 - 50, y, 100, 20, Text.literal("请注意：以下输入的值均为最终保存值"), textRenderer));
+                y += 25;
+
+                // Rotation 输入框
+                addDrawableChild(new TextWidget(width / 2 - 180, y, 100, 20, Text.literal("旋转属性"), textRenderer));
+                TextFieldWidget rotationField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, y, 180, 20,
+                        Text.literal("旋转属性（仅限地面或天花板上的画）")));
+                rotationField.setText(String.valueOf(entity.getRotation()));
+                rotationField.setChangedListener(s -> {
+                    try {
+                        rotation = Double.parseDouble(s);
+                    } catch (NumberFormatException ignored) {
+                        // 忽略非法输入
+                    }
+                });
+                y += 25;
+
+                // Move X 输入框
+                addDrawableChild(new TextWidget(width / 2 - 120, y, 30, 20, Text.literal("X,Y,Z"), textRenderer));
+                TextFieldWidget moveXField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, y, 60, 20,
+                        Text.literal("X")));
+                moveXField.setText(String.valueOf(moveX));
+                moveXField.setChangedListener(s -> {
+                    try {
+                        moveX = Double.parseDouble(s);
+                    } catch (NumberFormatException ignored) {
+                        // 忽略非法输入
+                    }
+                });
+
+                // Move Y 输入框
+                TextFieldWidget moveYField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 30, y, 60, 20,
+                        Text.literal("Y")));
+                moveYField.setText(String.valueOf(moveY));
+                moveYField.setChangedListener(s -> {
+                    try {
+                        moveY = Double.parseDouble(s);
+                    } catch (NumberFormatException ignored) {
+                        // 忽略非法输入
+                    }
+                });
+
+                // Move Z 输入框
+                TextFieldWidget moveZField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 + 30, y, 60, 20,
+                        Text.literal("Z")));
+                moveZField.setText(String.valueOf(moveZ));
+                moveZField.setChangedListener(s -> {
+                    try {
+                        moveZ = Double.parseDouble(s);
+                    } catch (NumberFormatException ignored) {
+                        // 忽略非法输入
+                    }
+                });
+
+                y += 30;
+
+                // Cancel 按钮
+                addDrawableChild(new DefaultButtonWidget(width / 2 - 85, y, 80, 20,
+                        Text.translatable("immersive_paintings.cancel"), v -> close()));
+
+                // Save 按钮
+                addDrawableChild(new DefaultButtonWidget(width / 2 + 5, y, 80, 20,
+                        Text.translatable("immersive_paintings.save"), v -> {
+                    if (Math.abs(entity.getAttachmentPos().getX() - moveX) < 16 && Math.abs(entity.getAttachmentPos().getY() - moveY) < 16 && Math.abs(entity.getAttachmentPos().getZ() - moveZ) < 16) {
+                        NetworkHandler.sendToServer(new EditRequest(entity, rotation, moveX, moveY, moveZ));
+                        close();
+                    } else {
+                        entity.sendMessage(Text.of("错误：您最多能移动16个方块的距离"));
+                    }
+                }));
+            }
+
             case CREATE -> {
                 // Name
                 TextFieldWidget textFieldWidget = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, height / 2 - 100, 180, 20,
@@ -863,7 +955,8 @@ public class ImmersivePaintingScreen extends Screen {
         FRAME,
         DELETE,
         ADMIN_DELETE,
-        LOADING
+        LOADING,
+        EDIT
     }
 
     public static final class PixelatorSettings {
