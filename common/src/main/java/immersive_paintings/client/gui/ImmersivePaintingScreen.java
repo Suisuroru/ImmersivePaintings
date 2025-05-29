@@ -73,9 +73,14 @@ public class ImmersivePaintingScreen extends Screen {
     private static volatile boolean shouldUpload;
 
     private double rotation = 0;
-    private double moveX = 0;
-    private double moveY = 0;
-    private double moveZ = 0;
+    private double X = 0;
+    private double Y = 0;
+    private double Z = 0;
+    private boolean updatingRotationFields = false;
+    private boolean updatingXFields = false;
+    private boolean updatingYFields = false;
+    private boolean updatingZFields = false;
+    private boolean forceSave = false;
 
     final ExecutorService service = Executors.newFixedThreadPool(1);
 
@@ -265,66 +270,153 @@ public class ImmersivePaintingScreen extends Screen {
             case EDIT -> {
                 // set default value
                 rotation = entity.getRotation();
-                moveX = entity.getAttachmentPos().getX();
-                moveY = entity.getAttachmentPos().getY();
-                moveZ = entity.getAttachmentPos().getZ();
+                X = entity.getAttachmentPos().getX();
+                Y = entity.getAttachmentPos().getY();
+                Z = entity.getAttachmentPos().getZ();
                 int y = height / 2 - 70;
 
                 addDrawableChild(new TextWidget(width / 2 - 50, y, 100, 20, Text.literal("请注意：以下输入的值均为最终保存值"), textRenderer));
                 y += 25;
 
-                // Rotation 输入框
                 addDrawableChild(new TextWidget(width / 2 - 180, y, 100, 20, Text.literal("旋转属性"), textRenderer));
+
+                // Rotation 输入框
                 TextFieldWidget rotationField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, y, 180, 20,
                         Text.literal("旋转属性（仅限地面或天花板上的画）")));
                 rotationField.setText(String.valueOf(entity.getRotation()));
-                rotationField.setChangedListener(s -> {
-                    try {
-                        rotation = Double.parseDouble(s);
-                    } catch (NumberFormatException ignored) {
-                        // 忽略非法输入
-                    }
-                });
                 y += 25;
 
-                // Move X 输入框
-                addDrawableChild(new TextWidget(width / 2 - 120, y, 30, 20, Text.literal("X,Y,Z"), textRenderer));
-                TextFieldWidget moveXField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, y, 60, 20,
+                addDrawableChild(new TextWidget(width / 2 - 180, y, 100, 20, Text.literal("旋转属性（差值）"), textRenderer));
+
+                // dRotation 输入框
+                TextFieldWidget dRotationField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, y, 180, 20,
+                        Text.literal("旋转属性（差值）")));
+                dRotationField.setText(String.valueOf(0d));
+                y += 25;
+
+                addDrawableChild(new TextWidget(width / 2 - 180, y, 30, 20, Text.literal("X,Y,Z"), textRenderer));
+
+                // X 输入框
+                TextFieldWidget xField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, y, 60, 20,
                         Text.literal("X")));
-                moveXField.setText(String.valueOf(moveX));
-                moveXField.setChangedListener(s -> {
-                    try {
-                        moveX = Double.parseDouble(s);
-                    } catch (NumberFormatException ignored) {
-                        // 忽略非法输入
-                    }
-                });
+                xField.setText(String.valueOf(X));
 
-                // Move Y 输入框
-                TextFieldWidget moveYField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 30, y, 60, 20,
+                // Y 输入框
+                TextFieldWidget yField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 30, y, 60, 20,
                         Text.literal("Y")));
-                moveYField.setText(String.valueOf(moveY));
-                moveYField.setChangedListener(s -> {
-                    try {
-                        moveY = Double.parseDouble(s);
-                    } catch (NumberFormatException ignored) {
-                        // 忽略非法输入
-                    }
-                });
+                yField.setText(String.valueOf(Y));
 
-                // Move Z 输入框
-                TextFieldWidget moveZField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 + 30, y, 60, 20,
+                // Z 输入框
+                TextFieldWidget zField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 + 30, y, 60, 20,
                         Text.literal("Z")));
-                moveZField.setText(String.valueOf(moveZ));
-                moveZField.setChangedListener(s -> {
-                    try {
-                        moveZ = Double.parseDouble(s);
-                    } catch (NumberFormatException ignored) {
-                        // 忽略非法输入
-                    }
-                });
+                zField.setText(String.valueOf(Z));
+
+                y += 25;
+
+                addDrawableChild(new TextWidget(width / 2 - 180, y, 30, 20, Text.literal("dX,dY,dZ"), textRenderer));
+
+                // moveX 输入框
+                TextFieldWidget moveXField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 90, y, 60, 20,
+                        Text.literal("moveX")));
+                moveXField.setText(String.valueOf(0d));
+
+                // moveY 输入框
+                TextFieldWidget moveYField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 - 30, y, 60, 20,
+                        Text.literal("moveY")));
+                moveYField.setText(String.valueOf(0d));
+
+                // moveZ 输入框
+                TextFieldWidget moveZField = addDrawableChild(new TextFieldWidget(this.textRenderer, width / 2 + 30, y, 60, 20,
+                        Text.literal("moveZ")));
+                moveZField.setText(String.valueOf(0d));
 
                 y += 30;
+
+                // Listeners
+                rotationField.setChangedListener(s -> {
+                    if (updatingRotationFields) return;
+                    try {
+                        rotation = Double.parseDouble(s);
+                        forceSave = false;
+                        updatingRotationFields = true;
+                        dRotationField.setText(String.valueOf(rotation - entity.getRotation()));
+                        updatingRotationFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
+                dRotationField.setChangedListener(s -> {
+                    if (updatingRotationFields) return;
+                    try {
+                        double dRotation = Double.parseDouble(s);
+                        rotation = entity.getRotation() + dRotation;
+                        forceSave = false;
+                        updatingRotationFields = true;
+                        rotationField.setText(String.valueOf(rotation));
+                        updatingRotationFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
+                xField.setChangedListener(s -> {
+                    if (updatingXFields) return;
+                    try {
+                        X = Double.parseDouble(s);
+                        forceSave = false;
+                        updatingXFields = true;
+                        moveXField.setText(String.valueOf(X - entity.getAttachmentPos().getX()));
+                        updatingXFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
+                moveXField.setChangedListener(s -> {
+                    if (updatingXFields) return;
+                    try {
+                        double moveX = Double.parseDouble(s);
+                        X = entity.getAttachmentPos().getX() + moveX;
+                        forceSave = false;
+                        updatingXFields = true;
+                        xField.setText(String.valueOf(X));
+                        updatingXFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
+                yField.setChangedListener(s -> {
+                    if (updatingYFields) return;
+                    try {
+                        Y = Double.parseDouble(s);
+                        forceSave = false;
+                        updatingYFields = true;
+                        moveYField.setText(String.valueOf(Y - entity.getAttachmentPos().getY()));
+                        updatingYFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
+                moveYField.setChangedListener(s -> {
+                    if (updatingYFields) return;
+                    try {
+                        double moveY = Double.parseDouble(s);
+                        Y = entity.getAttachmentPos().getY() + moveY;
+                        forceSave = false;
+                        updatingYFields = true;
+                        yField.setText(String.valueOf(Y));
+                        updatingYFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
+                zField.setChangedListener(s -> {
+                    if (updatingZFields) return;
+                    try {
+                        Z = Double.parseDouble(s);
+                        forceSave = false;
+                        updatingZFields = true;
+                        moveZField.setText(String.valueOf(Z - entity.getAttachmentPos().getZ()));
+                        updatingZFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
+                moveZField.setChangedListener(s -> {
+                    if (updatingZFields) return;
+                    try {
+                        double moveZ = Double.parseDouble(s);
+                        Z = entity.getAttachmentPos().getZ() + moveZ;
+                        forceSave = false;
+                        updatingZFields = true;
+                        zField.setText(String.valueOf(Z));
+                        updatingZFields = false;
+                    } catch (NumberFormatException ignored) {}
+                });
 
                 // Cancel 按钮
                 addDrawableChild(new DefaultButtonWidget(width / 2 - 85, y, 80, 20,
@@ -333,11 +425,17 @@ public class ImmersivePaintingScreen extends Screen {
                 // Save 按钮
                 addDrawableChild(new DefaultButtonWidget(width / 2 + 5, y, 80, 20,
                         Text.translatable("immersive_paintings.save"), v -> {
-                    if (Math.abs(entity.getAttachmentPos().getX() - moveX) < 16 && Math.abs(entity.getAttachmentPos().getY() - moveY) < 16 && Math.abs(entity.getAttachmentPos().getZ() - moveZ) < 16) {
-                        NetworkHandler.sendToServer(new EditRequest(entity, rotation, moveX, moveY, moveZ));
+                    if (Math.abs(entity.getAttachmentPos().getX() - X) < 32 && Math.abs(entity.getAttachmentPos().getY() - Y) < 64 && Math.abs(entity.getAttachmentPos().getZ() - Z) < 32) {
+                        NetworkHandler.sendToServer(new EditRequest(entity, rotation, X, Y, Z));
                         close();
                     } else {
-                        entity.sendMessage(Text.of("错误：您最多能移动16个方块的距离"));
+                        if (forceSave) {
+                            NetworkHandler.sendToServer(new EditRequest(entity, rotation, X, Y, Z));
+                            close();
+                        } else {
+                            v.setMessage(Text.literal("强制保存"));
+                            forceSave = true;
+                        }
                     }
                 }));
             }
