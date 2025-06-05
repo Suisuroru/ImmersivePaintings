@@ -1,9 +1,11 @@
 package immersive_paintings.entity;
 
 import immersive_paintings.Config;
+import immersive_paintings.item.ImmersivePaintingItem;
 import net.minecraft.entity.*;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
@@ -16,6 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
 public abstract class AbstractImmersiveDecorationEntity extends Entity {
@@ -202,12 +205,25 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
         if (this.isInvulnerableTo(source)) {
             return false;
         }
+        AtomicBoolean bl = new AtomicBoolean(false);
         if (!this.isRemoved() && !this.getWorld().isClient) {
-            this.kill();
-            this.scheduleVelocityUpdate();
-            this.onBreak(source.getAttacker());
+            Entity sourceE = source.getSource();
+            if (sourceE != null && !(sourceE instanceof PlayerEntity)) {
+                return sourceE instanceof Ownable;
+            }
+            Entity attacker = source.getAttacker();
+            if (attacker instanceof PlayerEntity) {
+                attacker.getHandItems().forEach(itemStack -> {
+                    if (!bl.get() && itemStack.getItem() instanceof ImmersivePaintingItem) {
+                        this.kill();
+                        this.scheduleVelocityUpdate();
+                        this.onBreak(attacker);
+                        bl.set(true);
+                    }
+                });
+            }
         }
-        return true;
+        return bl.get();
     }
 
     @Override
