@@ -46,6 +46,10 @@ public class EditRequest extends Message {
         e.sendMessage(Text.of("received edit request, data " + rotate + " " + x + " " + y + " " + z));
         Entity entity = e.getWorld().getEntityById(entityId);
         if (entity instanceof ImmersivePaintingEntity painting) {
+            if (e.getUuid() != painting.getOwner() && !e.hasPermissionLevel(2)) {
+                e.sendMessage(Text.of("You are not allowed to edit this painting"));
+                return;
+            }
             rotate = rotate % 360;
             if (rotate < 0) rotate += 360;
             e.sendMessage(Text.of("accepted edit request, data " + rotate + " " + x + " " + y + " " + z));

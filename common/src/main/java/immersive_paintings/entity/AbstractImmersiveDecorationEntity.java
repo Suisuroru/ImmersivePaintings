@@ -5,7 +5,6 @@ import immersive_paintings.item.ImmersivePaintingItem;
 import net.minecraft.entity.*;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
@@ -18,6 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
@@ -27,6 +27,7 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
     protected Vec3d attachmentPos;
     protected Direction facing = Direction.SOUTH;
     protected double rotation = 0;
+    UUID owner = null;
 
     protected AbstractImmersiveDecorationEntity(EntityType<? extends Entity> entityType, World world) {
         super(entityType, world);
@@ -106,34 +107,45 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
         z -= (double)this.facing.getOffsetZ() * 7.5 / 16.0 - up.getZ() * oy - side.getZ() * ox;
         this.setPos(x, y, z);
 
-        // feat：生成 8 个顶点并计算 AABB 碰撞箱
+        if (this.facing.getAxis() == Direction.Axis.Y) {
+            // feat：生成 8 个顶点并计算 AABB 碰撞箱
 
-        List<Vec3d> corners = new ArrayList<>();
+            List<Vec3d> corners = new ArrayList<>();
 
-        for (int i = 0; i < 8; i++) {
-            double dx = ((i & 1) == 0 ? -1 : 1) * w;
-            double dy = ((i & 2) == 0 ? -1 : 1) * h;
-            double dz = ((i & 4) == 0 ? -1 : 1) * d;
+            for (int i = 0; i < 8; i++) {
+                double dx = ((i & 1) == 0 ? -1 : 1) * w;
+                double dy = ((i & 2) == 0 ? -1 : 1) * h;
+                double dz = ((i & 4) == 0 ? -1 : 1) * d;
 
-            Vec3d offset = up.multiply(dx).add(side.multiply(dy)).add(front.multiply(dz));
-            if (this.facing.getAxis() == Direction.Axis.X) {
-                corners.add(new Vec3d(x, y, z).add(new Vec3d(offset.getX(), offset.getZ(), offset.getY())));
-            } else if (this.facing.getAxis() == Direction.Axis.Z) {
-                corners.add(new Vec3d(x, y, z).add(new Vec3d(offset.getY(), offset.getX(), offset.getZ())));
-            } else {
-                corners.add(new Vec3d(x, y, z).add(new Vec3d(offset.getZ(), offset.getY(), offset.getX())));
+                Vec3d offset = up.multiply(dx).add(side.multiply(dy)).add(front.multiply(dz));
+                if (this.facing.getAxis() == Direction.Axis.X) {
+                    corners.add(new Vec3d(x, y, z).add(new Vec3d(offset.getX(), offset.getZ(), offset.getY())));
+                } else if (this.facing.getAxis() == Direction.Axis.Z) {
+                    corners.add(new Vec3d(x, y, z).add(new Vec3d(offset.getY(), offset.getX(), offset.getZ())));
+                } else {
+                    corners.add(new Vec3d(x, y, z).add(new Vec3d(offset.getZ(), offset.getY(), offset.getX())));
+                }
             }
+
+            double minX = corners.stream().mapToDouble(Vec3d::getX).min().orElseThrow();
+            double minY = corners.stream().mapToDouble(Vec3d::getY).min().orElseThrow();
+            double minZ = corners.stream().mapToDouble(Vec3d::getZ).min().orElseThrow();
+
+            double maxX = corners.stream().mapToDouble(Vec3d::getX).max().orElseThrow();
+            double maxY = corners.stream().mapToDouble(Vec3d::getY).max().orElseThrow();
+            double maxZ = corners.stream().mapToDouble(Vec3d::getZ).max().orElseThrow();
+            this.setBoundingBox(new Box(minX, minY, minZ, maxX, maxY, maxZ));
+        } else {
+            // origin logic
+            this.setBoundingBox(new Box(
+                    x - up.getX() * h - side.getX() * w - front.getX() * d,
+                    y - up.getY() * h - side.getY() * w - front.getY() * d,
+                    z - up.getZ() * h - side.getZ() * w - front.getZ() * d,
+                    x + up.getX() * h + side.getX() * w + front.getX() * d,
+                    y + up.getY() * h + side.getY() * w + front.getY() * d,
+                    z + up.getZ() * h + side.getZ() * w + front.getZ() * d
+            ));
         }
-
-        double minX = corners.stream().mapToDouble(Vec3d::getX).min().orElseThrow();
-        double minY = corners.stream().mapToDouble(Vec3d::getY).min().orElseThrow();
-        double minZ = corners.stream().mapToDouble(Vec3d::getZ).min().orElseThrow();
-
-        double maxX = corners.stream().mapToDouble(Vec3d::getX).max().orElseThrow();
-        double maxY = corners.stream().mapToDouble(Vec3d::getY).max().orElseThrow();
-        double maxZ = corners.stream().mapToDouble(Vec3d::getZ).max().orElseThrow();
-
-        this.setBoundingBox(new Box(minX, minY, minZ, maxX, maxY, maxZ));
     }
 
 
@@ -214,7 +226,9 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
             Entity attacker = source.getAttacker();
             if (attacker instanceof PlayerEntity) {
                 attacker.getHandItems().forEach(itemStack -> {
-                    if (!bl.get() && itemStack.getItem() instanceof ImmersivePaintingItem) {
+                    if (!bl.get()
+                            && getOwner().equals(attacker.getUuid())
+                            && itemStack.getItem() instanceof ImmersivePaintingItem) {
                         this.kill();
                         this.scheduleVelocityUpdate();
                         this.onBreak(attacker);
@@ -268,6 +282,7 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
         nbt.putDouble("TileZ", attachmentPos.getZ());
         nbt.putByte("Facing", DIRECTION_TO_ID.get(this.facing));
         nbt.putDouble("Rotation", this.rotation);
+        nbt.putUuid("owner", getOwner());
     }
 
     @Override
@@ -276,6 +291,7 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
         this.facing = ID_TO_DIRECTION.get(nbt.getByte("Facing"));
         this.rotation = nbt.getDouble("Rotation");
         this.setFacing(this.facing, this.rotation);
+        this.owner = nbt.getUuid("owner");
     }
 
     public abstract int getWidthPixels();
@@ -356,6 +372,10 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
         setFacing(rotate);
         setAttachmentPos(new Vec3d(x, y, z));
         updateAttachmentPosition();
+    }
+
+    public UUID getOwner() {
+        return owner;
     }
 }
 

@@ -19,6 +19,7 @@ import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
@@ -129,6 +130,10 @@ public class ImmersivePaintingEntity extends AbstractImmersiveDecorationEntity {
     @Override
     public ActionResult interact(PlayerEntity player, Hand hand) {
         if (player instanceof ServerPlayerEntity serverPlayerEntity && serverPlayerEntity.interactionManager.getGameMode() != GameMode.ADVENTURE) {
+            if (serverPlayerEntity.getUuid() != getOwner() && !serverPlayerEntity.hasPermissionLevel(2)) {
+                player.sendMessage(Text.of("You are not allowed to edit this painting"));
+                return ActionResult.PASS;
+            }
             if (!XercaPaintCompat.interactWithPainting(this, player, hand)) {
                 if (!player.isSneaking()) {
                     Config config = Config.getInstance();

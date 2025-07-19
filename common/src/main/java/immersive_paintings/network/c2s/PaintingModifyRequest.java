@@ -8,6 +8,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 
 public class PaintingModifyRequest extends PaintingDataMessage {
     public PaintingModifyRequest(ImmersivePaintingEntity painting) {
@@ -22,6 +23,10 @@ public class PaintingModifyRequest extends PaintingDataMessage {
     public void receive(PlayerEntity e) {
         Entity entity = e.getWorld().getEntityById(getEntityId());
         if (entity instanceof ImmersivePaintingEntity painting) {
+            if (e.getUuid() != painting.getOwner() && !e.hasPermissionLevel(2)) {
+                e.sendMessage(Text.of("You are not allowed to edit this painting"));
+                return;
+            }
             painting.setMotive(getMotive());
             painting.setFrame(getFrame());
             painting.setMaterial(getMaterial());
