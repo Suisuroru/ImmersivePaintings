@@ -227,7 +227,7 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
             if (attacker instanceof PlayerEntity) {
                 attacker.getHandItems().forEach(itemStack -> {
                     if (!bl.get()
-                            && getOwner().equals(attacker.getUuid())
+                            && (getOwner().equals(attacker.getUuid()) || attacker.hasPermissionLevel(2))
                             && itemStack.getItem() instanceof ImmersivePaintingItem) {
                         this.kill();
                         this.scheduleVelocityUpdate();
@@ -372,6 +372,14 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
         setFacing(rotate);
         setAttachmentPos(new Vec3d(x, y, z));
         updateAttachmentPosition();
+    }
+
+    public void setOwner(PlayerEntity player) {
+        setOwner(player.getUuid());
+    }
+
+    public void setOwner(UUID uuid) {
+        owner = uuid;
     }
 
     public UUID getOwner() {

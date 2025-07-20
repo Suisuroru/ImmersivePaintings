@@ -39,6 +39,9 @@ public class ImmersivePaintingItem extends Item {
             }
             World world = context.getWorld();
             ImmersivePaintingEntity paintingEntity = newPainting(world, attachmentPosition, direction, rotation);
+            if (playerEntity != null) {
+                paintingEntity.setOwner(playerEntity);
+            }
 
             NbtCompound nbtCompound = itemStack.getNbt();
             if (nbtCompound != null) {
