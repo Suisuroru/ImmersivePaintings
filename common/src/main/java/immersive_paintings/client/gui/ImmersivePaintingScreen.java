@@ -23,9 +23,11 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
-import org.apache.commons.io.FilenameUtils;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.*;
@@ -816,7 +818,7 @@ public class ImmersivePaintingScreen extends Screen {
                             if (currentImage != null) {
                                 currentImagePixelZoomCache = -1;
                                 currentImageName = file.getName();
-                                settings = new PixelatorSettings(currentImage);
+                                settings = new PixelatorSettings(currentImage, maxResolution);
                                 setPage(Page.CREATE);
                                 pixelateImage();
                             }
@@ -923,11 +925,19 @@ public class ImmersivePaintingScreen extends Screen {
         currentImage = loadImage(path, Main.locate("temp"));
         currentImagePixelZoomCache = -1;
         if (currentImage != null) {
-            currentImageName = FilenameUtils.getBaseName(path).replaceFirst("[.][^.]+$", "");
-            settings = new PixelatorSettings(currentImage);
+            currentImageName = toFileName(path);
+            settings = new PixelatorSettings(currentImage, maxResolution);
             setPage(Page.CREATE);
             pixelateImage();
         }
+    }
+
+    private String toFileName(String path) {
+        path = path.replace("\\", "/");
+        int lastSlash = path.lastIndexOf('/');
+        int lastDot = path.lastIndexOf('.');
+        if (lastDot < lastSlash) lastDot = path.length(); // no extension
+        return path.substring(lastSlash + 1, lastDot);
     }
 
     private ByteImage loadImage(String path, Identifier identifier) {
@@ -957,7 +967,7 @@ public class ImmersivePaintingScreen extends Screen {
         return null;
     }
 
-    // Only a graffiti properly supports alpha
+    // Only graffiti properly supports alpha
     private void preprocessImage(ByteImage image) {
         clearError();
         if (!entity.isGraffiti()) {
@@ -1081,8 +1091,8 @@ public class ImmersivePaintingScreen extends Screen {
             this.pixelArt = pixelArt;
         }
 
-        PixelatorSettings(ByteImage currentImage) {
-            this(0.25, 10, 32, 1, 1, 0.5, 0.5, 1, false);
+        PixelatorSettings(ByteImage currentImage, int maxResolution) {
+            this(0.25, 10, Math.min(32, maxResolution), 1, 1, 0.5, 0.5, 1, false);
 
             double target = currentImage.getWidth() / (double) currentImage.getHeight();
             double bestScore = 100;
