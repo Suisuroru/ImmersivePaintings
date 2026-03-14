@@ -8,6 +8,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.BlockMirror;
 import net.minecraft.util.BlockRotation;
 import net.minecraft.util.math.*;
@@ -217,7 +218,6 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
         if (this.isInvulnerableTo(source)) {
             return false;
         }
-        AtomicBoolean bl = new AtomicBoolean(false);
         if (!this.isRemoved() && !this.getWorld().isClient) {
             Entity sourceE = source.getSource();
             if (sourceE != null && !(sourceE instanceof PlayerEntity)) {
@@ -225,19 +225,24 @@ public abstract class AbstractImmersiveDecorationEntity extends Entity {
             }
             Entity attacker = source.getAttacker();
             if (attacker instanceof PlayerEntity) {
-                attacker.getHandItems().forEach(itemStack -> {
-                    if (!bl.get()
-                            && (getOwner().equals(attacker.getUuid()) || attacker.hasPermissionLevel(2))
-                            && itemStack.getItem() instanceof ImmersivePaintingItem) {
+                boolean ownerCheck = this.getOwner().equals(attacker.getUuid()) || attacker.hasPermissionLevel(2);
+                if (!ownerCheck) {
+                    attacker.sendMessage(Text.of("You aren't the owner of paint or an operator of the server."));
+                    return false;
+                }
+                for (ItemStack itemStack : attacker.getHandItems()) {
+                    if (itemStack.getItem() instanceof ImmersivePaintingItem) {
                         this.kill();
                         this.scheduleVelocityUpdate();
                         this.onBreak(attacker);
-                        bl.set(true);
+                        return true;
                     }
-                });
+                }
+
+                attacker.sendMessage(Text.of("For secure reasons, you must be holding a immersive painting item to break this painting."));
             }
         }
-        return bl.get();
+        return false;
     }
 
     @Override
