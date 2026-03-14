@@ -24,7 +24,7 @@ public class PaintingModifyRequest extends PaintingDataMessage {
         Entity entity = e.getWorld().getEntityById(getEntityId());
         if (entity instanceof ImmersivePaintingEntity painting) {
             if (e.getUuid() != painting.getOwner() && !e.hasPermissionLevel(2)) {
-                e.sendMessage(Text.of("You are not allowed to edit this painting"));
+                e.sendMessage(Text.of("You aren't the owner of paint or an operator of the server."));
                 return;
             }
             painting.setMotive(getMotive());
